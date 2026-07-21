@@ -1,6 +1,15 @@
 import { db } from "./db";
 
 export function createTables() {
+
+  db.exec(`
+DROP TABLE IF EXISTS images;
+DROP TABLE IF EXISTS order_details;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS inventory;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS collections;
+`);
   
   db.exec(`
     CREATE TABLE IF NOT EXISTS collections (
@@ -77,4 +86,21 @@ CREATE TABLE IF NOT EXISTS order_details (
   total_price INTEGER NOT NULL
 );
 `);
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS images (
+  id INTEGER PRIMARY KEY,
+  variant_id INTEGER NOT NULL,
+  drive_file_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  url TEXT,
+  sort_order INTEGER NOT NULL
+);
+`);
+
+
+
+
+
+
 }

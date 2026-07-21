@@ -1,11 +1,13 @@
 import "./env";
+import { db } from "./db";
 
 import { createTables } from "./schema";
 import { saveCollections } from "./saveCollection";
 import { saveProducts } from "./saveProducts";
+import { scanAllCollections } from "./google/drive";
+import { saveImages } from "./saveImages";
 
 async function main() {
-
   const { readSheet } = await import("./google/sheets");
   const { parseRows } = await import("./parsers/parser");
   const { validateCollections } = await import("./parsers/collections");
@@ -16,7 +18,7 @@ async function main() {
 
   createTables();
 
-  
+
   const rows = await readSheet("Collection");
   const collections = validateCollections(
     parseRows(rows)
@@ -24,7 +26,7 @@ async function main() {
   saveCollections(collections);
   console.log("Collections saved.");
 
-  
+
   const productRows = await readSheet("Product");
   const products = validateProducts(
     parseRows(productRows)
@@ -39,6 +41,12 @@ async function main() {
   );
   saveInventory(inventory);
   console.log("Inventories saved.");
+
+
+  const images = await scanAllCollections(process.env.GOOGLE_PRODUCT_FOLDER_ID!);
+  saveImages(images);
+
+  console.log("Images saved.");
 }
 
 main();
