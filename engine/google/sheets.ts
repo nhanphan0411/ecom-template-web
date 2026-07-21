@@ -9,7 +9,7 @@ const auth = new google.auth.JWT({
   email: credentials.client_email,
   key: credentials.private_key,
   scopes: [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
   ],
 });
 
@@ -19,8 +19,8 @@ const sheets = google.sheets({
 });
 
 export async function readSheet(sheetName: string) {
-    console.log(credentials.client_email);
-console.log(credentials.project_id);
+  console.log(credentials.client_email);
+  console.log(credentials.project_id);
   await auth.authorize();
 
   const response = await sheets.spreadsheets.values.get({
@@ -29,4 +29,44 @@ console.log(credentials.project_id);
   });
 
   return response.data.values ?? [];
+}
+
+export async function writeSheet(
+  sheetName: string,
+  rows: any[]
+) {
+
+  if (rows.length === 0) return;
+
+  const headers = Object.keys(rows[0]);
+
+  const values = [
+    headers,
+    ...rows.map(row => headers.map(h => row[h]))
+  ];
+
+  try {
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    range: sheetName,
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    range: sheetName,
+    valueInputOption: "RAW",
+    requestBody: {
+      values,
+    },
+  });
+
+  console.log("SUCCESS:", sheetName);
+
+} catch (err) {
+
+  console.error(err);
+
+}
+
 }

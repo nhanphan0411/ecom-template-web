@@ -38,3 +38,17 @@ export function getProductBySlug(slug: string) {
     )
     .get(slug);
 }
+
+export function getAllProducts() {
+  return db
+    .prepare(
+      `
+      SELECT *
+      FROM products
+      AND status = 'Active'
+      ORDER BY id
+    `
+    )
+    .all();
+}
+

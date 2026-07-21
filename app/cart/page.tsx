@@ -93,6 +93,8 @@ export default function CartPage() {
                         </button>
 
                         <button
+                            disabled={item.quantity >= item.variant.stock}
+                            className={item.quantity >= item.variant.stock ? "opacity-30 cursor-not-allowed" : ""}
                             onClick={() => {
                                 increaseQuantity(item.variant_id);
                                 loadCart();

@@ -1,6 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
+
 export default function CheckoutPage() {
+    const [idempotencyKey] = useState(() => crypto.randomUUID());
     return (
         <main className="max-w-3xl mx-auto p-10">
 
@@ -22,7 +26,7 @@ export default function CheckoutPage() {
                         localStorage.getItem("cart") || "[]"
                     );
 
-                    await fetch("/api/orders", {
+                    const res = await fetch("/api/orders", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -37,11 +41,15 @@ export default function CheckoutPage() {
                             paymentMethod: formData.get("paymentMethod"),
 
                             cart,
+                            idempotencyKey,
 
                         }),
                     });
 
-                    alert("Order submitted.");
+                    const result = await res.json();
+
+                    localStorage.removeItem("cart");
+                    window.location.href = `/order/${result.orderId}`;
 
                 }}
             >

@@ -82,16 +82,15 @@ export default function ProductOptions({
                         <p>Price: {selectedVariant.priceVND.toLocaleString()} VND</p>
 
                         <button
-                            className="mt-6 border rounded px-4 py-2"
+                            className="mt-6 border rounded px-4 py-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                            disabled={selectedVariant.stock === 0}
                             onClick={() => {
                                 if (!selectedVariant) return;
-
                                 addToCart(selectedVariant.id);
-
                                 alert("Added to cart");
                             }}
                         >
-                            Add to Cart
+                            {selectedVariant.stock === 0 ? "Out of Stock" : "Add to Cart"}
                         </button>
                     </>
                 ) : (
