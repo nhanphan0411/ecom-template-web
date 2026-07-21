@@ -20,6 +20,7 @@ export function getVariantById(id: number) {
       SELECT *
       FROM inventory
       WHERE id = ?
+      AND status = 'Active'
       LIMIT 1
     `)
     .get(id);
