@@ -15,6 +15,15 @@ export default function ProductCard({
   variants: any[];
   images: any[];
 }) {
+  if (variants.length === 0) {
+    return (
+      <div className="border rounded overflow-hidden p-3">
+        <p className="font-medium">{product.product_name}</p>
+        <p className="text-xs text-gray-400 mt-1">No variants configured</p>
+      </div>
+    );
+  }
+
   const options = buildProductOptions(variants);
 
   const [selected, setSelected] = useState<Record<string, string>>(() => {
