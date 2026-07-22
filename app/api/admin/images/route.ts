@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getImages, insertImage } from "@/lib/images";
+import { getImages, insertImage } from "@/lib/db/images";
 import { uploadImage } from "@/engine/cloudfare/r2";
 
 export async function GET(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "product_slug and value1 required" }, { status: 400 });
   }
 
-  return NextResponse.json(getImages(productSlug, value1, value2));
+  return NextResponse.json(await getImages(productSlug, value1, value2)); // ← missing await
 }
 
 export async function POST(req: NextRequest) {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const r2Key = `${keyPath}/${crypto.randomUUID()}.${ext}`;
 
     const url = await uploadImage(r2Key, buffer, file.type || "image/png");
-    const id = insertImage(productSlug, value1, value2, r2Key, url);
+    const id = await insertImage(productSlug, value1, value2, r2Key, url); 
 
     uploaded.push({ id, url, r2_key: r2Key });
   }

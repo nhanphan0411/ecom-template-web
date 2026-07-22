@@ -24,7 +24,7 @@ export default function CartPage() {
             body: JSON.stringify({ cart }),
         });
 
-        const items = await response.json();
+        const items = (await response.json()) as any;
 
         setItems(items);
     }

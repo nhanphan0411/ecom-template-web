@@ -1,6 +1,8 @@
-import { getProductsByCollection } from "@/lib/products";
-import { getInventory } from "@/lib/inventory";
-import { getAllImagesForProduct } from "@/lib/images";
+export const dynamic = "force-dynamic";
+
+import { getProductsByCollection } from "@/lib/db/products";
+import { getInventory } from "@/lib/db/inventory";
+import { getAllImagesForProduct } from "@/lib/db/images";
 import ProductCard from "@/components/ProductCard";
 
 export default async function CollectionPage({
@@ -9,13 +11,15 @@ export default async function CollectionPage({
     params: Promise<{ slug: string }>;
 }) {
     const { slug } = await params;
-    const products: any[] = getProductsByCollection(slug);
+    const products: any[] = await getProductsByCollection(slug);
 
-    const cards = products.map((product) => ({
-        product,
-        variants: getInventory(product.product_slug),
-        images: getAllImagesForProduct(product.product_slug),
-    }));
+    const cards = await Promise.all(
+        products.map(async (product) => ({
+            product,
+            variants: await getInventory(product.product_slug),
+            images: await getAllImagesForProduct(product.product_slug),
+        }))
+    );
 
     return (
         <main className="max-w-5xl mx-auto p-10">

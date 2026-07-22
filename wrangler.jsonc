@@ -1,0 +1,33 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "ecom-template",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-07-22",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "ecom-template"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "ecom-db",
+			"database_id": "57543190-6b4a-4197-9357-a32e64132985",
+			"remote": true
+		}
+	],
+  "kv_namespaces": [
+		{
+			"binding": "NEXT_CACHE_WORKERS_KV",
+			"id": "81e2cbb077ef46309c54727ee9187c39"
+		}
+	]
+}

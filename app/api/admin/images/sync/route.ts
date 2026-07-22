@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getImages, insertImage, getImageById, deleteImageRow, updateSortOrders } from "@/lib/images";
+import { getImages, insertImage, getImageById, deleteImageRow, updateSortOrders } from "@/lib/db/images";
 import { uploadImage, deleteImage } from "@/engine/cloudfare/r2";
 
 export async function POST(req: NextRequest) {
@@ -18,10 +18,10 @@ export async function POST(req: NextRequest) {
 
   // 1. Deletes
   for (const id of deleteIds) {
-    const image: any = getImageById(id);
+    const image: any = await getImageById(id);
     if (image) {
       await deleteImage(image.r2_key);
-      deleteImageRow(id);
+      await deleteImageRow(id);
     }
   }
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const r2Key = `${keyPath}/${crypto.randomUUID()}.${ext}`;
 
     const url = await uploadImage(r2Key, buffer, file.type || "image/png");
-    const id = insertImage(productSlug, value1, value2, r2Key, url) as number;
+    const id = await insertImage(productSlug, value1, value2, r2Key, url) as number;
 
     fileIndexToId[i] = id;
   }
@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
     sort_order: index,
   }));
 
-  updateSortOrders(finalOrder);
+  await updateSortOrders(finalOrder);
 
-  const images = getImages(productSlug, value1, value2 ?? undefined);
+  const images = await getImages(productSlug, value1, value2 ?? undefined);
   return NextResponse.json(images);
 }

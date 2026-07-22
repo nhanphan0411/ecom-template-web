@@ -1,9 +1,11 @@
-import { getCollections } from "@/lib/collections";
+export const dynamic = "force-dynamic";
+
+import { getCollections } from "@/lib/db/collections";
 import Link from "next/link";
 
 export default async function AllCollectionsPage() {
 
-  const collections = getCollections();
+  const collections = await getCollections();
 
   return (
     <main className="max-w-4xl mx-auto p-10">

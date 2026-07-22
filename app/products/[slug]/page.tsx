@@ -1,6 +1,8 @@
-import { getProductBySlug } from "@/lib/products";
-import { getInventory } from "@/lib/inventory";
-import { getAllImagesForProduct } from "@/lib/images";
+export const dynamic = "force-dynamic";
+
+import { getProductBySlug } from "@/lib/db/products";
+import { getInventory } from "@/lib/db/inventory";
+import { getAllImagesForProduct } from "@/lib/db/images";
 import { buildProductOptions } from "@/lib/productOptions";
 import ProductOptions from "@/components/ProductOptions";
 
@@ -10,9 +12,9 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product: any = getProductBySlug(slug);
-  const inventory: any[] = getInventory(slug);
-  const images: any[] = getAllImagesForProduct(slug);
+  const product: any = await getProductBySlug(slug);
+  const inventory: any[] = await getInventory(slug);
+  const images: any[] = await getAllImagesForProduct(slug);
   const options = buildProductOptions(inventory);
 
   return (

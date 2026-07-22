@@ -46,7 +46,7 @@ export default function CheckoutPage() {
                         }),
                     });
 
-                    const result = await res.json();
+                    const result = await (res.json()) as any;
 
                     localStorage.removeItem("cart");
                     window.location.href = `/order/${result.orderId}`;
@@ -87,7 +87,7 @@ export default function CheckoutPage() {
                 <select
                     name="paymentMethod"
                     className="border p-2 w-full"
-                    defaultValue="COD"
+                    defaultValue="Card Payment"
                 >
                     <option>Card Payment</option>
                     <option>Bank Transfer</option>

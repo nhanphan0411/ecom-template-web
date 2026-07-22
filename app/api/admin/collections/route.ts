@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getAllCollectionsAdmin } from "@/lib/collections";
+import { getAllCollectionsAdmin } from "@/lib/db/collections";
 
 export async function GET() {
-  const collections = getAllCollectionsAdmin();
+  const collections = await getAllCollectionsAdmin();
   return NextResponse.json(collections);
 }

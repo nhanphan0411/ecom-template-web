@@ -43,3 +43,6 @@ next-env.d.ts
 database.db
 database.db-shm
 database.db-wal
+
+ecom-template-web-output.md
+ecom-template-web-output.txt

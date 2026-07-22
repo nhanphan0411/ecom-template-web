@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getValue2Options } from "@/lib/inventory";
+import { getValue2Options } from "@/lib/db/inventory";
 
 export async function GET(req: NextRequest) {
   const product = req.nextUrl.searchParams.get("product");
@@ -7,5 +7,5 @@ export async function GET(req: NextRequest) {
   if (!product || !value1) {
     return NextResponse.json({ error: "product and value1 required" }, { status: 400 });
   }
-  return NextResponse.json(getValue2Options(product, value1));
+  return NextResponse.json(await getValue2Options(product, value1));
 }

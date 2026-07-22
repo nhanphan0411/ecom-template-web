@@ -1,4 +1,6 @@
-import { getOrder, getOrderDetails } from "@/lib/order";
+export const dynamic = "force-dynamic";
+
+import { getOrder, getOrderDetails } from "@/lib/db/orders";
 
 export default async function OrderPage({
   params,
@@ -7,8 +9,8 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
 
-  const order: any = getOrder(Number(id));
-  const details: any[] = getOrderDetails(Number(id));
+  const order: any = await getOrder(Number(id));
+  const details: any[] = await getOrderDetails(Number(id));
 
   return (
     <main className="max-w-3xl mx-auto p-10">

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getVariantById } from "@/lib/inventory";
-import { getProduct } from "@/lib/products";
+import { getVariantById } from "@/lib/db/inventory";
+import { getProduct } from "@/lib/db/products";
 
 export async function POST(req: NextRequest) {
 
-  const { cart } = await req.json();
+  const { cart } = (await req.json()) as any;
 
-  const items = cart.map((item: any) => {
+  const items = await Promise.all(cart.map(async (item: any) => {
 
-    const variant: any = getVariantById(item.variant_id);
+    const variant: any = await getVariantById(item.variant_id);
 
-    const product: any = getProduct(variant.product_slug);
+    const product: any = await getProduct(variant.product_slug);
 
     return {
       ...item,
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       product,
     };
 
-  });
+  }));
 
   return NextResponse.json(items);
 
