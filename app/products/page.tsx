@@ -1,38 +1,31 @@
 import { getAllProducts } from "@/lib/products";
 import { getInventory } from "@/lib/inventory";
-import { buildProductOptions } from "@/lib/productOptions";
-import ProductOptions from "@/components/ProductOptions";
+import { getAllImagesForProduct } from "@/lib/images";
+import ProductCard from "@/components/ProductCard";
 
-export default async function ProductPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const product: any = getAllProducts();
-  const inventory: any[] = getInventory(slug);
-  const options = buildProductOptions(inventory);
+export default async function ProductsPage() {
+  const products: any[] = getAllProducts();
+
+  const cards = products.map((product) => ({
+    product,
+    variants: getInventory(product.product_slug),
+    images: getAllImagesForProduct(product.product_slug),
+  }));
 
   return (
-    <main className="max-w-5xl mx-auto p-10">
+    <main className="max-w-6xl mx-auto p-10">
+      <h1 className="text-3xl font-bold mb-8">All Products</h1>
 
-      <h1 className="text-4xl font-bold">
-        {product.product_name}
-      </h1>
-
-      <p className="mt-2 text-gray-500">
-        {product.category}
-      </p>
-
-      <div className="mt-10">
-
-        <ProductOptions
-          options={options}
-          variants={inventory}
-        />
-
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        {cards.map(({ product, variants, images }) => (
+          <ProductCard
+            key={product.product_slug}
+            product={product}
+            variants={variants}
+            images={images}
+          />
+        ))}
       </div>
-
     </main>
   );
 }

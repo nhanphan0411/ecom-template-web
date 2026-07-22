@@ -25,3 +25,21 @@ export function getVariantById(id: number) {
     `)
     .get(id);
 }
+
+export function getValue1Options(productSlug: string) {
+  return db.prepare(`
+    SELECT DISTINCT value1
+    FROM inventory
+    WHERE product_slug = ?
+    ORDER BY value1
+  `).all(productSlug);
+}
+
+export function getValue2Options(productSlug: string, value1: string) {
+  return db.prepare(`
+    SELECT DISTINCT value2
+    FROM inventory
+    WHERE product_slug = ? AND value1 = ? AND value2 IS NOT NULL AND value2 != ''
+    ORDER BY value2
+  `).all(productSlug, value1);
+}

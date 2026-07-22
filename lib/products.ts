@@ -45,10 +45,23 @@ export function getAllProducts() {
       `
       SELECT *
       FROM products
-      AND status = 'Active'
+      WHERE status = 'Active'
       ORDER BY id
     `
     )
     .all();
+}
+
+export function getProductsByCollectionAdmin(collection: string) {
+  return db
+    .prepare(
+      `
+      SELECT *
+      FROM products
+      WHERE collection_slug = ?
+      ORDER BY id
+    `
+    )
+    .all(collection);
 }
 

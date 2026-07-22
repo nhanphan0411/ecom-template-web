@@ -10,3 +10,13 @@ export function getCollections() {
     `)
     .all();
 }
+
+export function getAllCollectionsAdmin() {
+  return db
+    .prepare(`
+      SELECT *
+      FROM collections
+      ORDER BY id
+    `)
+    .all();
+}
