@@ -91,16 +91,11 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS images (
   id INTEGER PRIMARY KEY,
   variant_id INTEGER NOT NULL,
-  drive_file_id TEXT NOT NULL,
+  drive_file_id TEXT NOT NULL UNIQUE,
   filename TEXT NOT NULL,
-  url TEXT,
-  sort_order INTEGER NOT NULL
+  r2_key TEXT,
+  url TEXT
 );
 `);
-
-
-
-
-
 
 }

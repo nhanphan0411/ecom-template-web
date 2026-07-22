@@ -4,8 +4,11 @@ import { db } from "./db";
 import { createTables } from "./schema";
 import { saveCollections } from "./saveCollection";
 import { saveProducts } from "./saveProducts";
-import { scanAllCollections } from "./google/drive";
+import { scanProductImages, downloadFile } from "./google/drive";
 import { saveImages } from "./saveImages";
+import { uploadImage } from "./cloudfare/r2";
+import { uploadImages } from "./uploadImages";
+import { deleteRemovedImages } from "./deleteImages";
 
 async function main() {
   const { readSheet } = await import("./google/sheets");
@@ -43,10 +46,17 @@ async function main() {
   console.log("Inventories saved.");
 
 
-  const images = await scanAllCollections(process.env.GOOGLE_PRODUCT_FOLDER_ID!);
+  const images = await scanProductImages(process.env.GOOGLE_ASSETS_FOLDER_ID!);
+  const removedImages = deleteRemovedImages(images);
   saveImages(images);
 
   console.log("Images saved.");
+
+  await uploadImages();
+
+  console.log("Images uploaded to R2.");
+
+  
 }
 
 main();

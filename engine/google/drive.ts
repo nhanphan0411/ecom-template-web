@@ -27,7 +27,7 @@ export async function listChildren(folderId: string) {
     return res.data.files ?? [];
 }
 
-export async function scanCollection(folderId: string) {
+export async function scanCollection(folderId: string, folderName: string) {
     const images: any[] = [];
     const products = await listChildren(folderId);
     for (const product of products) {
@@ -58,8 +58,8 @@ export async function scanCollection(folderId: string) {
                         variant_id: variant.id,
                         drive_file_id: imageFiles[i].id,
                         filename: imageFiles[i].name,
+                        r2_key: `Products/${folderName}/${product.name}/${variant1.name}/${imageFiles[i].name}`,
                         url: null,
-                        sort_order: i + 1,
                     });
 
                 }
@@ -93,8 +93,8 @@ export async function scanCollection(folderId: string) {
                         variant_id: variant.id,
                         drive_file_id: imageFiles[i].id,
                         filename: imageFiles[i].name,
+                        r2_key: `Products/${folderName}/${product.name}/${variant1.name}/${variant2.name}/${imageFiles[i].name}`,
                         url: null,
-                        sort_order: i + 1,
                     });
 
                 }
@@ -109,24 +109,32 @@ export async function scanCollection(folderId: string) {
 
 }
 
-export async function scanAllCollections(rootFolderId: string) {
-
+export async function scanProductImages(rootFolderId: string) {
     const images: any[] = [];
-
     const collections = await listChildren(rootFolderId);
-
     for (const collection of collections) {
-
-        const collectionImages = await scanCollection(collection.id!);
-
+        const collectionImages = await scanCollection(
+            collection.id!,
+            collection.name!
+        );
         images.push(...collectionImages);
-
     }
-
     return images;
-
 }
 
+export async function downloadFile(fileId: string) {
+    const res = await drive.files.get(
+        {
+            fileId,
+            alt: "media",
+        },
+        {
+            responseType: "arraybuffer",
+        }
+    );
+
+    return Buffer.from(res.data as ArrayBuffer);
+}
 
 export async function testDrive(folderId: string) {
     const files = await drive.files.list({
