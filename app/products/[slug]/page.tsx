@@ -1,5 +1,6 @@
 import { getProductBySlug } from "@/lib/products";
 import { getInventory } from "@/lib/inventory";
+import { getAllImagesForProduct } from "@/lib/images";
 import { buildProductOptions } from "@/lib/productOptions";
 import ProductOptions from "@/components/ProductOptions";
 
@@ -11,6 +12,7 @@ export default async function ProductPage({
   const { slug } = await params;
   const product: any = getProductBySlug(slug);
   const inventory: any[] = getInventory(slug);
+  const images: any[] = getAllImagesForProduct(slug);
   const options = buildProductOptions(inventory);
 
   return (
@@ -29,6 +31,7 @@ export default async function ProductPage({
         <ProductOptions
           options={options}
           variants={inventory}
+          images={images}
         />
 
       </div>

@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { addToCart } from "@/lib/cart";
+import Image from "next/image";
 
 export default function ProductOptions({
     options,
     variants,
+    images,
 }: {
     options: {
         name: string;
         values: string[];
     }[];
     variants: any[];
+    images: any[];
 }) {
     const [selected, setSelected] = useState<Record<string, string>>(() => {
 
@@ -26,6 +29,9 @@ export default function ProductOptions({
         return initial;
 
     });
+
+    const [imgIndex, setImgIndex] = useState(0);
+
     const selectedVariant = variants.find((variant) => {
 
         return Object.entries(selected).every(([name, value]) => {
@@ -40,8 +46,57 @@ export default function ProductOptions({
 
     });
 
+    const activeValue1 = variants[0]?.variant1 ? selected[variants[0].variant1] : undefined;
+    const activeValue2 = variants[0]?.variant2 ? selected[variants[0].variant2] : undefined;
+
+    const galleryImages = images.filter((img) => {
+        if (img.value1 !== activeValue1) return false;
+        if (img.value2 && img.value2 !== activeValue2) return false;
+        return true;
+    });
+
+    const currentImage = galleryImages[imgIndex] ?? galleryImages[0];
+
     return (
         <div className="space-y-6">
+            <div className="aspect-square bg-gray-100 relative mb-6">
+                {currentImage ? (
+                    <Image
+                        src={currentImage.url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                    />
+                ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                        No image
+                    </div>
+                )}
+
+                {galleryImages.length > 1 && (
+                    <>
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setImgIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+                            }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full w-8 h-8"
+                        >
+                            ‹
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setImgIndex((i) => (i + 1) % galleryImages.length);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full w-8 h-8"
+                        >
+                            ›
+                        </button>
+                    </>
+                )}
+            </div>
+
             {options.map((option) => (
                 <div key={option.name}>
                     <h2 className="font-bold mb-2">{option.name}</h2>
@@ -53,12 +108,13 @@ export default function ProductOptions({
                             return (
                                 <button
                                     key={value}
-                                    onClick={() =>
+                                    onClick={() => {
                                         setSelected({
                                             ...selected,
                                             [option.name]: value,
-                                        })
-                                    }
+                                        });
+                                        setImgIndex(0);
+                                    }}
                                     className={`border rounded px-4 py-2 ${active ? "bg-black text-white" : ""
                                         }`}
                                 >
