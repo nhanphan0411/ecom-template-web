@@ -1,5 +1,4 @@
 export const dynamic = "force-dynamic";
-
 import { getCollections } from "@/lib/db/collections";
 import Link from "next/link";
 
