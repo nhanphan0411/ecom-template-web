@@ -134,3 +134,11 @@ export async function getOrderDetails(
 
   return results as unknown as OrderDetail[];
 }
+
+export async function getAllOrdersAdmin(): Promise<Order[]> {
+  const db = await getDB();
+  const { results } = await db
+    .prepare(`SELECT * FROM orders ORDER BY id DESC`)
+    .all();
+  return results as unknown as Order[];
+}
