@@ -41,26 +41,10 @@ export interface Inventory {
 
   stock: number | null;
 
-  priceVND: number | null;
-  priceUSD: number | null;
+  priceVND: number;
+  priceUSD: number;
 
   status: string;
-}
-
-export interface Image {
-  id: number;
-
-  product_slug: string;
-
-  value1: string;
-  value2: string | null;
-
-  r2_key: string;
-  url: string;
-
-  sort_order: number;
-
-  created_at: string;
 }
 
 export interface Order {
@@ -118,7 +102,7 @@ export interface NewOrder {
 export interface Image {
   id: number;
   product_slug: string;
-  value1: string;
+  value1: string | null;
   value2: string | null;
   r2_key_thumb: string;
   r2_key_mid: string;

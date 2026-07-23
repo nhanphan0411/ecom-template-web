@@ -4,7 +4,7 @@ import { createOrderWithDetails } from "@/lib/db/orders";
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as any;
   try {
-    const orderId = await createOrderWithDetails(
+    const publicId = await createOrderWithDetails(
       {
         created_at: new Date().toISOString(),
         payment_status: "Pending",
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       },
       body.cart
     );
-    return NextResponse.json({ success: true, orderId });
+    return NextResponse.json({ success: true, publicId });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }

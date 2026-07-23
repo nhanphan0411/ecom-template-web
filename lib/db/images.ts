@@ -180,6 +180,27 @@ export async function updateSortOrders(
   }
 }
 
+export async function getFirstImage(
+  productSlug: string,
+  value1: string | null,
+  value2?: string | null
+): Promise<Image | null> {
+  const db = await getDB();
+
+  return (await db
+    .prepare(`
+      SELECT *
+      FROM images
+      WHERE product_slug = ?
+        AND value1 = ?
+        AND IFNULL(value2,'') = IFNULL(?, '')
+      ORDER BY sort_order ASC, id ASC
+      LIMIT 1
+    `)
+    .bind(productSlug, value1, value2 ?? null)
+    .first()) as Image | null;
+}
+
 export async function getAllImagesForProduct(
   productSlug: string
 ): Promise<Image[]> {

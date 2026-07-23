@@ -26,12 +26,13 @@ export default async function CollectionPage({
             <h1 className="text-3xl font-bold mb-8">{slug}</h1>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                {cards.map(({ product, variants, images }) => (
+                {cards.map(({ product, variants, images }, i) => (
                     <ProductCard
                         key={product.product_slug}
                         product={product}
                         variants={variants}
                         images={images}
+                        priority={i < 3}
                     />
                 ))}
             </div>

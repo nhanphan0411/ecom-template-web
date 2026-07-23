@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { getOrder, getOrderDetails } from "@/lib/db/orders";
+import OrderItems from "@/components/orders/OrderItems";
+import { getOrderWithItems } from "@/lib/db/orders";
 
 export default async function OrderPage({
   params,
@@ -9,11 +10,14 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
 
-  const order: any = await getOrder(Number(id));
-  const details: any[] = await getOrderDetails(Number(id));
+  const order = await getOrderWithItems(id);
+
+  if (!order) {
+    return <main className="p-10">Order not found.</main>;
+  }
 
   return (
-    <main className="max-w-3xl mx-auto p-10">
+    <main className="max-w-5xl mx-auto p-10">
 
       <h1 className="text-4xl font-bold">
         Thank you!
@@ -29,30 +33,15 @@ export default async function OrderPage({
 
       <p>{order.payment_method}</p>
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-10">
 
-        {details.map((item) => (
-
-          <div
-            key={item.id}
-            className="border p-4 rounded"
-          >
-
-            <p>Variant ID: {item.variant_id}</p>
-
-            <p>Qty: {item.quantity}</p>
-
-            <p>{item.unit_price.toLocaleString()} VND</p>
-
-          </div>
-
-        ))}
+        <OrderItems
+          items={order.items}
+          subtotal={order.subtotal}
+          currency={order.currency}
+        />
 
       </div>
-
-      <h2 className="text-2xl font-bold mt-8">
-        Total: {order.subtotal.toLocaleString()} VND
-      </h2>
 
     </main>
   );

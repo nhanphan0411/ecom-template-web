@@ -1,9 +1,13 @@
+// next.config.ts
 import type { NextConfig } from "next";
-console.log("NEXT CONFIG LOADED");
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      new URL(`https://${process.env.R2_PUBLIC_URL}/**`),
+      {
+        protocol: "https",
+        hostname: "pub-e1ce6cd7aa9640ccb36c096dbb0c14c7.r2.dev",
+      },
     ],
   },
 };

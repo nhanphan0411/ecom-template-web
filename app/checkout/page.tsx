@@ -49,7 +49,7 @@ export default function CheckoutPage() {
                     const result = await (res.json()) as any;
 
                     localStorage.removeItem("cart");
-                    window.location.href = `/order/${result.orderId}`;
+                    window.location.href = `/order/${result.publicId}`;
 
                 }}
             >

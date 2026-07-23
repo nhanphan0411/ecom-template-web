@@ -10,10 +10,12 @@ export default function ProductCard({
   product,
   variants,
   images,
+  priority = false,
 }: {
   product: any;
   variants: any[];
   images: any[];
+  priority?: boolean;
 }) {
   if (variants.length === 0) {
     return (
@@ -82,7 +84,9 @@ export default function ProductCard({
             src={currentImage.url_thumb}
             alt={product.product_name}
             fill
+            sizes="(max-width: 768px) 50vw, 33vw"
             className="object-cover"
+            priority={priority}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
@@ -113,24 +117,43 @@ export default function ProductCard({
           <h2 className="font-medium hover:underline">{product.product_name}</h2>
         </Link>
 
-        {options.map((option) => (
+        {/* {options.map((option) => (
           <div key={option.name} className="flex gap-1 flex-wrap">
             {option.values.map((value) => {
               const active = selected[option.name] === value;
+
+              const candidate = {
+                ...selected,
+                [option.name]: value,
+              };
+
+              const exists = variants.some((variant) =>
+                Object.entries(candidate).every(([name, val]) =>
+                  (variant.variant1 === name && variant.value1 === val) ||
+                  (variant.variant2 === name && variant.value2 === val) ||
+                  (variant.variant3 === name && variant.value3 === val)
+                )
+              );
+
               return (
                 <button
                   key={value}
+                  disabled={!exists}
                   onClick={() => selectOption(option.name, value)}
-                  className={`text-xs border rounded px-2 py-1 ${
-                    active ? "bg-black text-white" : ""
-                  }`}
+                  className={`text-xs border rounded px-2 py-1 transition
+                      ${active
+                      ? "bg-black text-white border-black"
+                      : exists
+                        ? "hover:bg-gray-100"
+                        : "opacity-30 line-through cursor-not-allowed"
+                    }`}
                 >
                   {value}
                 </button>
               );
             })}
           </div>
-        ))}
+        ))} */}
 
         {selectedVariant ? (
           <>
