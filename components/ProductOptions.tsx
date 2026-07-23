@@ -62,7 +62,7 @@ export default function ProductOptions({
             <div className="aspect-square bg-gray-100 relative mb-6">
                 {currentImage ? (
                     <Image
-                        src={currentImage.url}
+                        src={currentImage.url_mid}
                         alt=""
                         fill
                         className="object-cover"

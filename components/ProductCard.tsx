@@ -79,7 +79,7 @@ export default function ProductCard({
       <div className="aspect-square bg-gray-100 relative">
         {currentImage ? (
           <Image
-            src={currentImage.url}
+            src={currentImage.url_thumb}
             alt={product.product_name}
             fill
             className="object-cover"

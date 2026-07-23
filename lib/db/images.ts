@@ -1,6 +1,71 @@
 import { getDB, queryAll, queryFirst } from "@/lib/d1";
-import { deleteImageSafe, deleteImagesSafe } from "@/engine/cloudfare/r2";
+import { deleteImagesSafe } from "@/engine/cloudfare/r2";
 import type { Image } from "@/types/db";
+import { renameImage } from "@/engine/cloudfare/r2";
+
+/**
+ * Renames the images tied to one value1/value2 group over to a new
+ * value1/value2 group — used when an admin edits a variant's own
+ * value1/value2 and expects its images to follow, not vanish.
+ *
+ * Caveat: if multiple inventory rows currently share the OLD group
+ * (e.g. same color, different sizes), this moves ALL of their shared
+ * images to the NEW group too. That's usually what's wanted (renaming
+ * a shared attribute), but it means editing one row can affect what
+ * other rows see if they still reference the old value.
+ */
+export async function repointImagesForVariantGroup(
+  productSlug: string,
+  oldValue1: string,
+  oldValue2: string | null,
+  newValue1: string,
+  newValue2: string | null
+): Promise<void> {
+  if (oldValue1 === newValue1 && (oldValue2 ?? null) === (newValue2 ?? null)) {
+    return;
+  }
+
+  const images = await getImages(productSlug, oldValue1, oldValue2 ?? undefined);
+  if (images.length === 0) return;
+
+  const db = await getDB();
+
+  const newBase = newValue2
+    ? `Products/${productSlug}/${newValue1}/${newValue2}`
+    : `Products/${productSlug}/${newValue1}`;
+
+  for (const img of images) {
+    const nameThumb = img.r2_key_thumb.split("/").pop();
+    const nameMid = img.r2_key_mid.split("/").pop();
+    const nameLarge = img.r2_key_large.split("/").pop();
+
+    const newKeyThumb = `${newBase}/${nameThumb}`;
+    const newKeyMid = `${newBase}/${nameMid}`;
+    const newKeyLarge = `${newBase}/${nameLarge}`;
+
+    const [urlThumb, urlMid, urlLarge] = await Promise.all([
+      renameImage(img.r2_key_thumb, newKeyThumb),
+      renameImage(img.r2_key_mid, newKeyMid),
+      renameImage(img.r2_key_large, newKeyLarge),
+    ]);
+
+    await db
+      .prepare(`
+        UPDATE images
+        SET value1 = ?, value2 = ?,
+            r2_key_thumb = ?, r2_key_mid = ?, r2_key_large = ?,
+            url_thumb = ?, url_mid = ?, url_large = ?
+        WHERE id = ?
+      `)
+      .bind(
+        newValue1, newValue2,
+        newKeyThumb, newKeyMid, newKeyLarge,
+        urlThumb, urlMid, urlLarge,
+        img.id
+      )
+      .run();
+  }
+}
 
 export async function getImages(
   productSlug: string,
@@ -27,8 +92,8 @@ export async function insertImage(
   productSlug: string,
   value1: string,
   value2: string | null,
-  r2Key: string,
-  url: string
+  keys: { thumb: string; mid: string; large: string },
+  urls: { thumb: string; mid: string; large: string }
 ): Promise<number> {
   const db = await getDB();
 
@@ -47,16 +112,23 @@ export async function insertImage(
   const result = await db
     .prepare(`
       INSERT INTO images (
-        product_slug, value1, value2, r2_key, url, sort_order
+        product_slug, value1, value2,
+        r2_key_thumb, r2_key_mid, r2_key_large,
+        url_thumb, url_mid, url_large,
+        sort_order
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       productSlug,
       value1,
       value2 ?? null,
-      r2Key,
-      url,
+      keys.thumb,
+      keys.mid,
+      keys.large,
+      urls.thumb,
+      urls.mid,
+      urls.large,
       (maxOrder?.max ?? 0) + 1
     )
     .run();
@@ -73,9 +145,9 @@ export async function getImageById(id: number): Promise<Image | null> {
 }
 
 /**
- * Deletes the DB row first, then best-effort deletes the R2 object.
- * DB-first means a failed R2 delete only ever leaves a harmless orphaned
- * object in the bucket — never a broken image reference in the app.
+ * Deletes the DB row first, then best-effort deletes all 3 R2 objects.
+ * DB-first means a failed R2 delete only ever leaves harmless orphaned
+ * objects in the bucket — never a broken image reference in the app.
  */
 export async function deleteImageRow(id: number): Promise<void> {
   const db = await getDB();
@@ -85,7 +157,9 @@ export async function deleteImageRow(id: number): Promise<void> {
 
   await db.prepare(`DELETE FROM images WHERE id = ?`).bind(id).run();
 
-  await deleteImageSafe(image.r2_key);
+  await deleteImagesSafe(
+    [image.r2_key_thumb, image.r2_key_mid, image.r2_key_large].filter(Boolean)
+  );
 }
 
 export async function updateSortOrders(
@@ -123,11 +197,12 @@ export async function getAllImagesForProduct(
   );
 }
 
-/**
- * Deletes every image row + R2 object for a product. Used when a whole
- * product is deleted — safe because nothing can reference these images
- * afterward.
- */
+function allKeys(images: Image[]): string[] {
+  return images.flatMap((img) =>
+    [img.r2_key_thumb, img.r2_key_mid, img.r2_key_large].filter(Boolean)
+  );
+}
+
 export async function deleteImagesForProduct(productSlug: string): Promise<void> {
   const db = await getDB();
 
@@ -139,14 +214,9 @@ export async function deleteImagesForProduct(productSlug: string): Promise<void>
     .bind(productSlug)
     .run();
 
-  await deleteImagesSafe(images.map((img) => img.r2_key));
+  await deleteImagesSafe(allKeys(images));
 }
 
-/**
- * Deletes every image row + R2 object for one value1/value2 combination
- * under a product. Used when the last variant referencing that
- * combination is deleted, so its images don't become permanent orphans.
- */
 export async function deleteImagesForVariantGroup(
   productSlug: string,
   value1: string,
@@ -167,15 +237,9 @@ export async function deleteImagesForVariantGroup(
     .bind(productSlug, value1, value2 ?? null)
     .run();
 
-  await deleteImagesSafe(images.map((img) => img.r2_key));
+  await deleteImagesSafe(allKeys(images));
 }
 
-/**
- * Re-points every image row for a product to a new product_slug. Used
- * when a product's slug is renamed. The R2 object itself never needs to
- * move — everything is looked up through this DB row, not by
- * re-deriving a path from the slug.
- */
 export async function repointImagesToSlug(
   oldProductSlug: string,
   newProductSlug: string

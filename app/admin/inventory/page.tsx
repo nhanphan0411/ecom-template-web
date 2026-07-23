@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { processImage } from "@/lib/imageProcessing";
 
 type StagedImage =
   | { kind: "existing"; id: number; url: string }
@@ -34,16 +35,16 @@ export default function InventoryPage() {
 
   const [form, setForm] = useState(emptyForm);
 
-  // ---- image manager ----
-  const [value1Options, setValue1Options] = useState<any[]>([]);
-  const [value2Options, setValue2Options] = useState<any[]>([]);
-  const [imgValue1, setImgValue1] = useState("");
-  const [imgValue2, setImgValue2] = useState("");
+  // ---- image manager (driven by the form's own value1/value2, not a separate picker) ----
+  const [imgKeyValue1, setImgKeyValue1] = useState("");
+  const [imgKeyValue2, setImgKeyValue2] = useState("");
 
   const [staged, setStaged] = useState<StagedImage[]>([]);
   const [originalIds, setOriginalIds] = useState<number[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [processProgress, setProcessProgress] = useState({ done: 0, total: 0 });
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // ---------------- shared pickers ----------------
@@ -59,10 +60,8 @@ export default function InventoryPage() {
     setProductSlug("");
     setVariants([]);
     setForm(emptyForm);
-    setValue1Options([]);
-    setImgValue1("");
-    setValue2Options([]);
-    setImgValue2("");
+    setImgKeyValue1("");
+    setImgKeyValue2("");
     setStaged([]);
     setOriginalIds([]);
     setDirty(false);
@@ -77,10 +76,8 @@ export default function InventoryPage() {
   useEffect(() => {
     setVariants([]);
     setForm(emptyForm);
-    setValue1Options([]);
-    setImgValue1("");
-    setValue2Options([]);
-    setImgValue2("");
+    setImgKeyValue1("");
+    setImgKeyValue2("");
     setStaged([]);
     setOriginalIds([]);
     setDirty(false);
@@ -88,10 +85,6 @@ export default function InventoryPage() {
     if (!productSlug) return;
 
     loadVariants();
-
-    fetch(`/api/admin/value1?product=${productSlug}`)
-      .then((res) => res.json())
-      .then((data) => setValue1Options(data as any[]));
   }, [productSlug]);
 
   // ---------------- inventory logic ----------------
@@ -102,9 +95,31 @@ export default function InventoryPage() {
     setVariants(data);
   }
 
-  function editVariant(v: any) {
-    setForm(v);
-  }
+  async function editVariant(v: any) {
+  setForm(v);
+
+  const value1 = v.value1 ?? "";
+  const value2 = v.variant2 ? (v.value2 ?? "") : "";
+
+  setImgKeyValue1(value1);
+  setImgKeyValue2(value2);
+  setDirty(false);
+
+  const params = new URLSearchParams({ product_slug: productSlug, value1 });
+  if (value2) params.set("value2", value2);
+
+  const res = await fetch(`/api/admin/images?${params.toString()}`);
+  const imgs = (await res.json()) as any[];
+
+  setStaged(
+    imgs.map((img) => ({
+      kind: "existing" as const,
+      id: img.id,
+      url: img.url_thumb,
+    }))
+  );
+  setOriginalIds(imgs.map((img) => img.id));
+}
 
   function newVariant() {
     setForm({
@@ -112,10 +127,15 @@ export default function InventoryPage() {
       collection_slug: collectionSlug,
       product_slug: productSlug,
     });
+    setImgKeyValue1("");
+    setImgKeyValue2("");
   }
 
   async function saveVariant() {
     const method = form.id ? "PUT" : "POST";
+
+    const newValue1 = form.value1?.trim() ?? "";
+    const newValue2 = form.variant2 ? (form.value2?.trim() ?? "") : "";
 
     await fetch("/api/admin/inventory", {
       method,
@@ -126,6 +146,33 @@ export default function InventoryPage() {
         product_slug: productSlug,
       }),
     });
+
+    // If this was an existing variant and its value1/value2 changed,
+    // move its images over instead of leaving them orphaned.
+    if (
+      form.id &&
+      imgKeyValue1 &&
+      (imgKeyValue1 !== newValue1 || imgKeyValue2 !== newValue2)
+    ) {
+      await fetch("/api/admin/images/repoint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_slug: productSlug,
+          old_value1: imgKeyValue1,
+          old_value2: imgKeyValue2 || null,
+          new_value1: newValue1,
+          new_value2: newValue2 || null,
+        }),
+      });
+
+      setImgKeyValue1(newValue1);
+      setImgKeyValue2(newValue2);
+    }
+
+    if (newValue1 && dirty) {
+      await syncImages(newValue1, newValue2);
+    }
 
     await loadVariants();
     newVariant();
@@ -149,53 +196,12 @@ export default function InventoryPage() {
 
   // ---------------- image manager logic ----------------
 
-  useEffect(() => {
-    setValue2Options([]);
-    setImgValue2("");
-    setStaged([]);
-    setOriginalIds([]);
-    setDirty(false);
-
-    if (!productSlug || !imgValue1) return;
-
-    fetch(`/api/admin/value2?product=${productSlug}&value1=${imgValue1}`)
-      .then((res) => res.json())
-      .then((data) => setValue2Options(data as any[]));
-  }, [productSlug, imgValue1]);
-
-  const needsValue2 = value2Options.length > 0;
-  const readyToShowImages = imgValue1 && (!needsValue2 || imgValue2);
-
-  useEffect(() => {
-    setStaged([]);
-    setOriginalIds([]);
-    setDirty(false);
-
-    if (!readyToShowImages) return;
-
-    const params = new URLSearchParams({
-      product_slug: productSlug,
-      value1: imgValue1,
-    });
-
-    if (imgValue2) params.set("value2", imgValue2);
-
-    fetch(`/api/admin/images?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        const imgs = data as any[];
-
-        setStaged(
-          imgs.map((img) => ({
-            kind: "existing" as const,
-            id: img.id,
-            url: img.url,
-          }))
-        );
-
-        setOriginalIds(imgs.map((img) => img.id));
-      });
-  }, [readyToShowImages, productSlug, imgValue1, imgValue2]);
+ const needsValue2 = !!form.variant2?.trim();
+const liveValue1 = form.value1?.trim() ?? "";
+const liveValue2 = needsValue2 ? (form.value2?.trim() ?? "") : "";
+const canManageImages = form.id
+  ? true // editing an existing variant — images stay visible no matter what's mid-typing
+  : !!liveValue1 && (!needsValue2 || !!liveValue2);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -232,7 +238,7 @@ export default function InventoryPage() {
     setDraggedIndex(null);
   }
 
-  async function handleSync() {
+  async function syncImages(value1: string, value2: string) {
     setSyncing(true);
 
     const stagedExistingIds = staged
@@ -260,17 +266,28 @@ export default function InventoryPage() {
     );
 
     const formData = new FormData();
-
     formData.append("product_slug", productSlug);
-    formData.append("value1", imgValue1);
-
-    if (imgValue2) formData.append("value2", imgValue2);
-
+    formData.append("value1", value1);
+    if (value2) formData.append("value2", value2);
     formData.append("deleteIds", JSON.stringify(deleteIds));
     formData.append("order", JSON.stringify(order));
 
-    for (const f of newFiles) {
-      formData.append("file", f.file);
+    // Process each new file into 3 WebP sizes, right here, before upload.
+    if (newFiles.length > 0) {
+      setProcessing(true);
+      setProcessProgress({ done: 0, total: newFiles.length });
+
+      for (let i = 0; i < newFiles.length; i++) {
+        const { thumb, mid, large } = await processImage(newFiles[i].file);
+
+        formData.append(`new_thumb_${i}`, thumb, `thumb-${i}.webp`);
+        formData.append(`new_mid_${i}`, mid, `mid-${i}.webp`);
+        formData.append(`new_large_${i}`, large, `large-${i}.webp`);
+
+        setProcessProgress({ done: i + 1, total: newFiles.length });
+      }
+
+      setProcessing(false);
     }
 
     const res = await fetch("/api/admin/images/sync", {
@@ -297,14 +314,14 @@ export default function InventoryPage() {
     const images = data.images ?? [];
 
     setStaged(
-      images.map((img) => ({
+      images.map((img: any) => ({
         kind: "existing",
         id: img.id,
-        url: img.url,
+        url: img.url_thumb, // grid preview uses the thumb size
       }))
     );
 
-    setOriginalIds(images.map((img) => img.id));
+    setOriginalIds(images.map((img: any) => img.id));
 
     setDirty(false);
     setSyncing(false);
@@ -417,7 +434,8 @@ export default function InventoryPage() {
                   {variants.map((v: any) => (
                     <tr
                       key={v.id}
-                      className="border-t border-gray-100 hover:bg-gray-50 transition"
+                      className={`border-t border-gray-100 hover:bg-gray-50 transition ${form.id === v.id ? "bg-blue-50" : ""
+                        }`}
                     >
                       <td className="p-3">
                         {v.variant1 ? (
@@ -471,11 +489,10 @@ export default function InventoryPage() {
                       </td>
                       <td className="p-3">
                         <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            v.status === "Active"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${v.status === "Active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                            }`}
                         >
                           {v.status}
                         </span>
@@ -503,10 +520,22 @@ export default function InventoryPage() {
             )}
           </section>
 
+          {/* ============ VARIANT FORM + IMAGES ============ */}
+
           <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-6 mb-12">
-            <h2 className="text-lg font-semibold text-gray-900 mb-5">
-              {form.id ? "Edit Variant" : "New Variant"}
-            </h2>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {form.id ? "Edit Variant" : "New Variant"}
+              </h2>
+              {form.id && (
+                <button
+                  onClick={newVariant}
+                  className="text-sm text-gray-500 hover:text-gray-800"
+                >
+                  Cancel edit
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               {([1, 2, 3] as const).map((n) => (
@@ -605,139 +634,130 @@ export default function InventoryPage() {
               </div>
             </div>
 
+            {/* ---- Images, embedded, driven by the form above ---- */}
+
+            <div className="mt-8 pt-6 border-t border-gray-100">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Images</h3>
+                  {canManageImages && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Shared across all sizes for{" "}
+                      <span className="font-medium text-gray-600">
+                        {imgKeyValue1}
+                        {imgKeyValue2 ? ` / ${imgKeyValue2}` : ""}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {!canManageImages ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-400">
+                  Fill in Variant 1{needsValue2 ? " and Variant 2" : ""} above
+                  (then click away from the field) to manage images for this
+                  combination.
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-4 mb-5">
+
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition">
+                      Choose files
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {dirty && (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                        Image changes will save with the variant
+                      </span>
+                    )}
+                  </div>
+
+                  {staged.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-400">
+                      No images yet for this combination — choose files above.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-4">
+                      {staged.map((img, index) => (
+                        <div
+                          key={img.kind === "existing" ? img.id : img.tempId}
+                          draggable
+                          onDragStart={() => setDraggedIndex(index)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDrop(index)}
+                          className="group relative w-28 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing"
+                        >
+                          <img
+                            src={
+                              img.kind === "existing"
+                                ? img.url
+                                : img.previewUrl
+                            }
+                            alt=""
+                            className={`w-full h-full object-cover ${img.kind === "new" ? "opacity-70" : ""
+                              }`}
+                          />
+
+                          {img.kind === "new" && (
+                            <span className="absolute bottom-1 left-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                              NEW
+                            </span>
+                          )}
+
+                          <button
+                            onClick={() => handleRemove(index)}
+                            className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white text-xs opacity-0 group-hover:opacity-100 transition"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {staged.length > 1 && (
+                    <p className="mt-3 text-xs text-gray-400">
+                      Drag images to reorder them.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+            {processing && (
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Processing images…</span>
+                  <span>{processProgress.done}/{processProgress.total}</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 transition-all"
+                    style={{
+                      width: `${(processProgress.done / Math.max(processProgress.total, 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end mt-6">
               <button
                 onClick={saveVariant}
-                className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition"
+                disabled={syncing}
+                className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-50"
               >
-                {form.id ? "Update Variant" : "Create Variant"}
+                {processing ? "Processing images…" : syncing ? "Saving…" : form.id ? "Update Variant" : "Create Variant"}
               </button>
             </div>
-          </section>
 
-          {/* ============ IMAGES ============ */}
-
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">Images</h2>
-
-              <div className="flex gap-3">
-                <select
-                  className={selectClass}
-                  value={imgValue1}
-                  onChange={(e) => setImgValue1(e.target.value)}
-                >
-                  <option value="">Select variant 1</option>
-                  {value1Options.map((v: any) => (
-                    <option key={v.value1} value={v.value1}>
-                      {v.value1}
-                    </option>
-                  ))}
-                </select>
-
-                {needsValue2 && (
-                  <select
-                    className={selectClass}
-                    value={imgValue2}
-                    onChange={(e) => setImgValue2(e.target.value)}
-                    disabled={!imgValue1}
-                  >
-                    <option value="">Select variant 2</option>
-                    {value2Options.map((v: any) => (
-                      <option key={v.value2} value={v.value2}>
-                        {v.value2}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-
-            {!readyToShowImages ? (
-              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-400">
-                Select the variant option{needsValue2 ? "s" : ""} above to
-                manage images for that combination.
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-4 mb-5">
-                  <label className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition">
-                    Choose files
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                  </label>
-
-                  <button
-                    onClick={handleSync}
-                    disabled={!dirty || syncing}
-                    className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 transition"
-                  >
-                    {syncing ? "Syncing…" : "Sync changes"}
-                  </button>
-
-                  {dirty && !syncing && (
-                    <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                      Unsaved changes
-                    </span>
-                  )}
-                </div>
-
-                {staged.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-400">
-                    No images yet for this combination — choose files above.
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-4">
-                    {staged.map((img, index) => (
-                      <div
-                        key={img.kind === "existing" ? img.id : img.tempId}
-                        draggable
-                        onDragStart={() => setDraggedIndex(index)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => handleDrop(index)}
-                        className="group relative w-28 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing"
-                      >
-                        <img
-                          src={
-                            img.kind === "existing"
-                              ? img.url
-                              : img.previewUrl
-                          }
-                          alt=""
-                          className={`w-full h-full object-cover ${
-                            img.kind === "new" ? "opacity-70" : ""
-                          }`}
-                        />
-
-                        {img.kind === "new" && (
-                          <span className="absolute bottom-1 left-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                            NEW
-                          </span>
-                        )}
-
-                        <button
-                          onClick={() => handleRemove(index)}
-                          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white text-xs opacity-0 group-hover:opacity-100 transition"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {staged.length > 1 && (
-                  <p className="mt-3 text-xs text-gray-400">
-                    Drag images to reorder them.
-                  </p>
-                )}
-              </>
-            )}
           </section>
         </>
       )}

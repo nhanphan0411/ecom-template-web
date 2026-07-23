@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
   const value2 = (formData.get("value2") as string | null) || null;
   const deleteIds: number[] = JSON.parse(formData.get("deleteIds") as string);
   const order: any[] = JSON.parse(formData.get("order") as string);
-  const files = formData.getAll("file") as File[];
 
   if (!productSlug || !value1) {
     return NextResponse.json(
@@ -26,13 +25,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Validate every new file up front — reject the whole batch if any
-  // file is bad, rather than partially uploading and leaving the admin
-  // guessing which one failed.
+  const newCount = order.filter((o) => o.type === "new").length;
+
+  const triplets: { thumb: File; mid: File; large: File }[] = [];
   const validationErrors: string[] = [];
-  for (const file of files) {
-    const result = validateImageFile(file);
-    if (!result.valid) validationErrors.push(result.error!);
+
+  for (let i = 0; i < newCount; i++) {
+    const thumb = formData.get(`new_thumb_${i}`) as File | null;
+    const mid = formData.get(`new_mid_${i}`) as File | null;
+    const large = formData.get(`new_large_${i}`) as File | null;
+
+    if (!thumb || !mid || !large) {
+      validationErrors.push(`Image ${i + 1}: missing a processed size — try re-adding it.`);
+      continue;
+    }
+
+    for (const f of [thumb, mid, large]) {
+      const result = validateImageFile(f);
+      if (!result.valid) validationErrors.push(result.error!);
+    }
+
+    triplets[i] = { thumb, mid, large };
   }
 
   if (validationErrors.length > 0) {
@@ -41,9 +54,7 @@ export async function POST(req: NextRequest) {
 
   const failures: string[] = [];
 
-  // 1. Deletes — deleteImageRow removes the DB row first, then
-  // best-effort removes the R2 object, so a storage hiccup can never
-  // leave a dangling DB reference to a missing file.
+  // 1. Deletes
   for (const id of deleteIds) {
     try {
       const image = await getImageById(id);
@@ -54,32 +65,42 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2. Uploads — map fileIndex -> new id
+  // 2. Uploads — 3 objects per new image
   const fileIndexToId: Record<number, number> = {};
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  for (let i = 0; i < triplets.length; i++) {
+    const { thumb, mid, large } = triplets[i];
 
     try {
-      const { ext } = validateImageFile(file);
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const keyPath = value2
+      const base = value2
         ? `Products/${productSlug}/${value1}/${value2}`
         : `Products/${productSlug}/${value1}`;
-      const r2Key = `${keyPath}/${crypto.randomUUID()}.${ext}`;
+      const uid = crypto.randomUUID();
 
-      const url = await uploadImage(r2Key, buffer, file.type);
-      const id = await insertImage(productSlug, value1, value2, r2Key, url);
+      const keyThumb = `${base}/${uid}-thumb.webp`;
+      const keyMid = `${base}/${uid}-mid.webp`;
+      const keyLarge = `${base}/${uid}-large.webp`;
+
+      const [urlThumb, urlMid, urlLarge] = await Promise.all([
+        uploadImage(keyThumb, Buffer.from(await thumb.arrayBuffer()), "image/webp"),
+        uploadImage(keyMid, Buffer.from(await mid.arrayBuffer()), "image/webp"),
+        uploadImage(keyLarge, Buffer.from(await large.arrayBuffer()), "image/webp"),
+      ]);
+
+      const id = await insertImage(
+        productSlug, value1, value2,
+        { thumb: keyThumb, mid: keyMid, large: keyLarge },
+        { thumb: urlThumb, mid: urlMid, large: urlLarge }
+      );
 
       fileIndexToId[i] = id;
     } catch (err) {
-      console.error(`Failed to upload "${file.name}":`, err);
-      failures.push(`Could not upload "${file.name}"`);
+      console.error(`Failed to upload image ${i}:`, err);
+      failures.push(`Could not upload image ${i + 1}`);
     }
   }
 
-  // 3. Final sort order — skip any entry whose upload failed, since it
-  // has no id to reference.
+  // 3. Final sort order
   const finalOrder = order
     .map((entry, index) => ({
       id: entry.type === "existing" ? entry.id : fileIndexToId[entry.fileIndex],

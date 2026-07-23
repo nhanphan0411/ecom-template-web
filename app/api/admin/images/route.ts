@@ -54,7 +54,15 @@ export async function POST(req: NextRequest) {
     const r2Key = `${keyPath}/${crypto.randomUUID()}.${ext}`;
 
     const url = await uploadImage(r2Key, buffer, file.type);
-    const id = await insertImage(productSlug, value1, value2, r2Key, url);
+    const id = await insertImage(
+      productSlug,
+      value1,
+      value2,
+      { thumb: r2Key, mid: r2Key, large: r2Key },
+      { thumb: url, mid: url, large: url }
+    );
+
+    uploaded.push({ id, url, r2_key: r2Key });
 
     uploaded.push({ id, url, r2_key: r2Key });
   }

@@ -114,3 +114,18 @@ export interface NewOrder {
   currency: string;
   idempotency_key?: string | null;
 }
+
+export interface Image {
+  id: number;
+  product_slug: string;
+  value1: string;
+  value2: string | null;
+  r2_key_thumb: string;
+  r2_key_mid: string;
+  r2_key_large: string;
+  url_thumb: string;
+  url_mid: string;
+  url_large: string;
+  sort_order: number;
+  created_at: string;
+}
