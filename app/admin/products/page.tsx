@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
   const [collections, setCollections] = useState<any[]>([]);
+  const [collectionSlug, setCollectionSlug] = useState("");
+  const [products, setProducts] = useState<any[]>([]);
 
   const emptyForm = {
     id: undefined as number | undefined,
@@ -20,30 +21,38 @@ export default function ProductsPage() {
   };
 
   const [form, setForm] = useState(emptyForm);
+  const [categoryInput, setCategoryInput] = useState("");
 
   useEffect(() => {
-    loadProducts();
-    loadCollections();
+    fetch("/api/admin/collections")
+      .then((res) => res.json())
+      .then((data) => setCollections(data as any[]));
   }, []);
 
-  async function loadProducts() {
-    const res = await fetch("/api/admin/products");
-    const data = (await res.json()) as any;
-    setProducts(data);
-  }
+  useEffect(() => {
+    setProducts([]);
+    setForm(emptyForm);
+    setCategoryInput("");
 
-  async function loadCollections() {
-    const res = await fetch("/api/admin/collections");
-    const data = (await res.json()) as any;
-    setCollections(data);
+    if (!collectionSlug) return;
+
+    loadProducts();
+  }, [collectionSlug]);
+
+  async function loadProducts() {
+    const res = await fetch(`/api/admin/products?collection=${collectionSlug}`);
+    const data = (await res.json()) as any[];
+    setProducts(data);
   }
 
   function editProduct(product: any) {
     setForm(product);
+    setCategoryInput("");
   }
 
   function newProduct() {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, collection_slug: collectionSlug });
+    setCategoryInput("");
   }
 
   async function saveProduct() {
@@ -51,103 +60,80 @@ export default function ProductsPage() {
 
     await fetch("/api/admin/products", {
       method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(form),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, collection_slug: collectionSlug }),
     });
 
     await loadProducts();
-    setForm(emptyForm);
+    newProduct();
   }
 
-  async function deleteProduct(id: number) {
-    if (!confirm("Delete this product?")) return;
+  async function deleteProductRow(id: number) {
+    if (!confirm("Delete this product? This also removes its variants and images.")) return;
 
     await fetch("/api/admin/products", {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
 
     await loadProducts();
 
-    if (form.id === id) {
-      setForm(emptyForm);
+    if (form.id === id) newProduct();
+  }
+
+  // ---- category chips (comma-separated string under the hood) ----
+
+  const categories = form.category
+    ? form.category.split(",").map((c) => c.trim()).filter(Boolean)
+    : [];
+
+  function addCategory() {
+    const value = categoryInput.trim();
+    if (!value || categories.includes(value)) {
+      setCategoryInput("");
+      return;
+    }
+    setForm({ ...form, category: [...categories, value].join(", ") });
+    setCategoryInput("");
+  }
+
+  function removeCategory(cat: string) {
+    setForm({
+      ...form,
+      category: categories.filter((c) => c !== cat).join(", "),
+    });
+  }
+
+  function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addCategory();
     }
   }
 
+  const selectClass =
+    "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400";
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelClass = "block text-xs font-medium text-gray-500 mb-1";
+
+  const selectedCollectionName = collections.find(
+    (c) => c.collection_slug === collectionSlug
+  )?.collection_name;
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold">Products</h1>
+    <div className="max-w-5xl">
+      <h1 className="text-3xl font-bold mb-6 text-gray-900">Products</h1>
 
-          <button
-            onClick={newProduct}
-            className="rounded bg-blue-600 px-4 py-2 text-white"
-          >
-            New
-          </button>
-        </div>
-      </div>
-
-      <table className="w-full border">
-        <thead>
-          <tr className="border-b bg-gray-100">
-            <th className="p-3 text-left">ID</th>
-            <th className="p-3 text-left">Name</th>
-            <th className="p-3 text-left">Slug</th>
-            <th className="p-3 text-left">Collection</th>
-            <th className="p-3 text-left">Status</th>
-            <th className="p-3 text-left">Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {products.map((p: any) => (
-            <tr key={p.id} className="border-b">
-              <td className="p-3">{p.id}</td>
-              <td className="p-3">{p.product_name}</td>
-              <td className="p-3">{p.product_slug}</td>
-              <td className="p-3">{p.collection_slug}</td>
-              <td className="p-3">{p.status}</td>
-              <td className="p-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => editProduct(p)}
-                    className="rounded border px-3 py-1"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() => deleteProduct(p.id)}
-                    className="rounded border border-red-400 px-3 py-1 text-red-600"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="mt-10 rounded border p-6">
-        <h2 className="mb-6 text-xl font-bold">
-          {form.id ? "Edit Product" : "New Product"}
-        </h2>
-
-        <div className="space-y-4">
+      {/* Picker bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 mb-8 shadow-sm">
+        <div className="flex flex-col">
+          <label className={labelClass}>Collection</label>
           <select
-            className="w-full rounded border p-2"
-            value={form.collection_slug}
-            onChange={(e) =>
-              setForm({ ...form, collection_slug: e.target.value })
-            }
+            className={selectClass}
+            value={collectionSlug}
+            onChange={(e) => setCollectionSlug(e.target.value)}
           >
             <option value="">Select collection</option>
             {collections.map((c: any) => (
@@ -156,79 +142,256 @@ export default function ProductsPage() {
               </option>
             ))}
           </select>
-
-          <input
-            className="w-full rounded border p-2"
-            placeholder="Product Name"
-            value={form.product_name}
-            onChange={(e) =>
-              setForm({ ...form, product_name: e.target.value })
-            }
-          />
-
-          <input
-            className="w-full rounded border p-2"
-            placeholder="Slug"
-            value={form.product_slug}
-            onChange={(e) =>
-              setForm({ ...form, product_slug: e.target.value })
-            }
-          />
-
-          <input
-            className="w-full rounded border p-2"
-            placeholder="Category"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-          />
-
-          <textarea
-            className="w-full rounded border p-2"
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
-          />
-
-          <textarea
-            className="w-full rounded border p-2"
-            placeholder="Shipping info"
-            value={form.shipping}
-            onChange={(e) => setForm({ ...form, shipping: e.target.value })}
-          />
-
-          <textarea
-            className="w-full rounded border p-2"
-            placeholder="Size guide"
-            value={form.sizeGuide}
-            onChange={(e) => setForm({ ...form, sizeGuide: e.target.value })}
-          />
-
-          <textarea
-            className="w-full rounded border p-2"
-            placeholder="Notes"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-
-          <select
-            className="rounded border p-2"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-          >
-            <option>Active</option>
-            <option>Draft</option>
-          </select>
-
-          <button
-            onClick={saveProduct}
-            className="rounded bg-green-600 px-6 py-2 text-white"
-          >
-            {form.id ? "Update Product" : "Create Product"}
-          </button>
         </div>
+
+        {collectionSlug && (
+          <div className="ml-auto text-sm text-gray-400">
+            <span className="font-medium text-gray-700">
+              {selectedCollectionName}
+            </span>
+          </div>
+        )}
       </div>
+
+      {!collectionSlug && (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-500">
+          Select a collection above to manage its products.
+        </div>
+      )}
+
+      {collectionSlug && (
+        <>
+          {/* ============ PRODUCTS TABLE ============ */}
+
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm mb-8 overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Products</h2>
+            </div>
+
+            {products.length === 0 ? (
+              <div className="p-8 text-center text-sm text-gray-400">
+                No products in this collection yet — add one below.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="p-3">ID</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3">Shipping</th>
+                    <th className="p-3">Guide</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((p: any) => {
+                    const cats = p.category
+                      ? p.category.split(",").map((c: string) => c.trim()).filter(Boolean)
+                      : [];
+
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`border-t border-gray-100 hover:bg-gray-50 transition ${
+                          form.id === p.id ? "bg-blue-50" : ""
+                        }`}
+                      >
+                        <td className="p-3 text-gray-500">{p.id}</td>
+                        <td className="p-3 font-medium text-gray-800">{p.product_name}</td>
+                        <td className="p-3">
+                          {cats.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {cats.map((c: string) => (
+                                <span
+                                  key={c}
+                                  className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                >
+                                  {c}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-gray-500 max-w-[160px] truncate">
+                          {p.shipping || <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="p-3 text-gray-500 max-w-[160px] truncate">
+                          {p.sizeGuide || <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              p.status === "Active"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => editProduct(p)}
+                              className="text-sm text-gray-600 hover:text-gray-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteProductRow(p.id)}
+                              className="text-sm text-red-500 hover:text-red-700"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          {/* ============ PRODUCT FORM ============ */}
+
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-6 mb-12">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {form.id ? "Edit Product" : "New Product"}
+              </h2>
+              {form.id && (
+                <button
+                  onClick={newProduct}
+                  className="text-sm text-gray-500 hover:text-gray-800"
+                >
+                  Cancel edit
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className={labelClass}>Product Name</label>
+                <input
+                  className={inputClass}
+                  value={form.product_name}
+                  onChange={(e) => setForm({ ...form, product_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Slug</label>
+                <input
+                  className={inputClass}
+                  value={form.product_slug}
+                  onChange={(e) => setForm({ ...form, product_slug: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className={labelClass}>Category</label>
+              <div className="rounded-lg border border-gray-300 px-3 py-2 flex flex-wrap gap-2 items-center">
+                {categories.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2.5 py-1 text-xs font-medium"
+                  >
+                    {c}
+                    <button
+                      onClick={() => removeCategory(c)}
+                      className="text-blue-500 hover:text-blue-800"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                <input
+                  className="flex-1 min-w-[120px] text-sm outline-none py-0.5"
+                  placeholder={categories.length === 0 ? "Type a category, press Enter" : "Add another…"}
+                  value={categoryInput}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  onKeyDown={handleCategoryKeyDown}
+                  onBlur={addCategory}
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                A product can belong to multiple categories — press Enter or comma to add each one.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className={labelClass}>Description</label>
+              <textarea
+                className={inputClass}
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className={labelClass}>Shipping info</label>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={form.shipping}
+                  onChange={(e) => setForm({ ...form, shipping: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Size guide</label>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={form.sizeGuide}
+                  onChange={(e) => setForm({ ...form, sizeGuide: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className={labelClass}>Notes</label>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Status</label>
+                <select
+                  className={selectClass + " w-full"}
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                >
+                  <option>Active</option>
+                  <option>Draft</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={saveProduct}
+                className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition"
+              >
+                {form.id ? "Update Product" : "Create Product"}
+              </button>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

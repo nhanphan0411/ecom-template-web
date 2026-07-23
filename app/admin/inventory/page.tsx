@@ -96,30 +96,30 @@ export default function InventoryPage() {
   }
 
   async function editVariant(v: any) {
-  setForm(v);
+    setForm(v);
 
-  const value1 = v.value1 ?? "";
-  const value2 = v.variant2 ? (v.value2 ?? "") : "";
+    const value1 = v.value1 ?? "";
+    const value2 = v.variant2 ? (v.value2 ?? "") : "";
 
-  setImgKeyValue1(value1);
-  setImgKeyValue2(value2);
-  setDirty(false);
+    setImgKeyValue1(value1);
+    setImgKeyValue2(value2);
+    setDirty(false);
 
-  const params = new URLSearchParams({ product_slug: productSlug, value1 });
-  if (value2) params.set("value2", value2);
+    const params = new URLSearchParams({ product_slug: productSlug, value1 });
+    if (value2) params.set("value2", value2);
 
-  const res = await fetch(`/api/admin/images?${params.toString()}`);
-  const imgs = (await res.json()) as any[];
+    const res = await fetch(`/api/admin/images?${params.toString()}`);
+    const imgs = (await res.json()) as any[];
 
-  setStaged(
-    imgs.map((img) => ({
-      kind: "existing" as const,
-      id: img.id,
-      url: img.url_thumb,
-    }))
-  );
-  setOriginalIds(imgs.map((img) => img.id));
-}
+    setStaged(
+      imgs.map((img) => ({
+        kind: "existing" as const,
+        id: img.id,
+        url: img.url_thumb,
+      }))
+    );
+    setOriginalIds(imgs.map((img) => img.id));
+  }
 
   function newVariant() {
     setForm({
@@ -196,12 +196,12 @@ export default function InventoryPage() {
 
   // ---------------- image manager logic ----------------
 
- const needsValue2 = !!form.variant2?.trim();
-const liveValue1 = form.value1?.trim() ?? "";
-const liveValue2 = needsValue2 ? (form.value2?.trim() ?? "") : "";
-const canManageImages = form.id
-  ? true // editing an existing variant — images stay visible no matter what's mid-typing
-  : !!liveValue1 && (!needsValue2 || !!liveValue2);
+  const needsValue2 = !!form.variant2?.trim();
+  const liveValue1 = form.value1?.trim() ?? "";
+  const liveValue2 = needsValue2 ? (form.value2?.trim() ?? "") : "";
+  const canManageImages = form.id
+    ? true // editing an existing variant — images stay visible no matter what's mid-typing
+    : !!liveValue1 && (!needsValue2 || !!liveValue2);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -426,6 +426,7 @@ const canManageImages = form.id
                     <th className="p-3">Variant 3</th>
                     <th className="p-3">Stock</th>
                     <th className="p-3">Price VND</th>
+                    <th className="p-3">Price USD</th>
                     <th className="p-3">Status</th>
                     <th className="p-3"></th>
                   </tr>
@@ -486,6 +487,9 @@ const canManageImages = form.id
                       </td>
                       <td className="p-3 text-gray-700">
                         {v.priceVND?.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-gray-700">
+                        {v.priceUSD != null ? `$${v.priceUSD.toLocaleString()}` : "—"}
                       </td>
                       <td className="p-3">
                         <span
@@ -555,7 +559,7 @@ const canManageImages = form.id
                       <input
                         className={inputClass}
                         placeholder={
-                          n === 1 ? "Color" : n === 2 ? "Size" : "Material"
+                          n === 1 ? "Color" : n === 2 ? "Material" : "Size"
                         }
                         value={(form as any)[`variant${n}`]}
                         onChange={(e) =>
@@ -568,7 +572,7 @@ const canManageImages = form.id
                       <input
                         className={inputClass}
                         placeholder={
-                          n === 1 ? "Red" : n === 2 ? "M" : "Cotton"
+                          n === 1 ? "Red" : n === 2 ? "Silk" : "S"
                         }
                         value={(form as any)[`value${n}`]}
                         onChange={(e) =>
