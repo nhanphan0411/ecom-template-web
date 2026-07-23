@@ -1,3 +1,244 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 export default function ProductsPage() {
-  return <h1 className="text-3xl font-bold">Products</h1>;
+
+  const [products, setProducts] = useState<any[]>([]);
+
+  const emptyForm = {
+  id: undefined,
+
+  collection_slug: "",
+
+  product_name: "",
+  product_slug: "",
+
+  category: "",
+
+  status: "Active",
+
+  description: "",
+
+  shipping: "",
+
+  sizeGuide: "",
+
+  notes: "",
+};
+
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    const res = await fetch("/api/admin/products");
+    const data = await (res.json()) as any;
+    setProducts(data);
+  }
+
+  function editProduct(collection: any) {
+    setForm(collection);
+  }
+
+  function newProduct() {
+    setForm(emptyForm);
+  }
+
+  async function saveProduct() {
+    const method = form.id ? "PUT" : "POST";
+
+    await fetch("/api/admin/products", {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    await loadProducts();
+
+    setForm(emptyForm);
+  }
+
+  async function deleteProduct(id: number) {
+    if (!confirm("Delete this collection?")) return;
+
+    await fetch("/api/admin/products", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    await loadProducts();
+
+    if (form.id === id) {
+      setForm(emptyForm);
+    }
+  }
+
+  return (
+    <div>
+
+      <div className="flex justify-between items-center mb-8">
+
+        <div className="flex items-center gap-4">
+
+          <h1 className="text-3xl font-bold">
+            Products
+          </h1>
+
+          <button
+            onClick={newProduct}
+            className="rounded bg-blue-600 px-4 py-2 text-white"
+          >
+            New
+          </button>
+
+        </div>
+
+      </div>
+
+      <table className="w-full border">
+
+        <thead>
+
+          <tr className="border-b bg-gray-100">
+
+            <th className="p-3 text-left">ID</th>
+            <th className="p-3 text-left">Name</th>
+            <th className="p-3 text-left">Slug</th>
+            <th className="p-3 text-left">Status</th>
+            <th className="p-3 text-left">Actions</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          {products.map((c: any) => (
+            <tr
+              key={c.id}
+              className="border-b"
+            >
+
+              <td className="p-3">{c.id}</td>
+
+              <td className="p-3">
+                {c.collection_name}
+              </td>
+
+              <td className="p-3">
+                {c.collection_slug}
+              </td>
+
+              <td className="p-3">
+                {c.status}
+              </td>
+
+              <td className="p-3">
+
+                <div className="flex gap-2">
+
+                  <button
+                    onClick={() => editProduct(c)}
+                    className="rounded border px-3 py-1"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={() => deleteProduct(c.id)}
+                    className="rounded border border-red-400 px-3 py-1 text-red-600"
+                  >
+                    Delete
+                  </button>
+
+                </div>
+
+              </td>
+
+            </tr>
+          ))}
+
+        </tbody>
+
+      </table>
+      <div className="mt-10 rounded border p-6">
+
+        <h2 className="mb-6 text-xl font-bold">
+          {form.id ? "Edit Product" : "New Product"}
+        </h2>
+
+        <div className="space-y-4">
+
+          <input
+            className="w-full rounded border p-2"
+            placeholder="Product Name"
+            value={form.collection_name}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                collection_name: e.target.value,
+              })
+            }
+          />
+
+          <input
+            className="w-full rounded border p-2"
+            placeholder="Slug"
+            value={form.collection_slug}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                collection_slug: e.target.value,
+              })
+            }
+          />
+
+          <textarea
+            className="w-full rounded border p-2"
+            placeholder="Description"
+            value={form.description}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                description: e.target.value,
+              })
+            }
+          />
+
+          <select
+            className="rounded border p-2"
+            value={form.status}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                status: e.target.value,
+              })
+            }
+          >
+            <option>Active</option>
+            <option>Draft</option>
+          </select>
+
+          <button
+            onClick={saveProduct}
+            className="rounded bg-green-600 px-6 py-2 text-white"
+          >
+            {form.id ? "Update Product" : "Create Product"}
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+
 }

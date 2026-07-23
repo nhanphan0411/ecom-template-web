@@ -126,3 +126,96 @@ export async function saveProducts(
     await db.batch(batch);
   }
 }
+
+export async function getAllProductsAdmin() {
+  const db = await getDB();
+
+  const { results } = await db
+    .prepare(`
+      SELECT *
+      FROM products
+      ORDER BY id
+    `)
+    .all();
+
+  return results as unknown as Product[];
+}
+
+export async function createProduct(
+  product: Omit<Product, "id">
+) {
+  const db = await getDB();
+
+  await db.prepare(`
+    INSERT INTO products (
+      collection_slug,
+      product_name,
+      product_slug,
+      category,
+      status,
+      description,
+      shipping,
+      sizeGuide,
+      notes
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  .bind(
+    product.collection_slug,
+    product.product_name,
+    product.product_slug,
+    product.category,
+    product.status,
+    product.description,
+    product.shipping,
+    product.sizeGuide,
+    product.notes
+  )
+  .run();
+}
+
+export async function updateProduct(
+  product: Product
+) {
+  const db = await getDB();
+
+  await db.prepare(`
+    UPDATE products
+    SET
+      collection_slug = ?,
+      product_name = ?,
+      product_slug = ?,
+      category = ?,
+      status = ?,
+      description = ?,
+      shipping = ?,
+      sizeGuide = ?,
+      notes = ?
+    WHERE id = ?
+  `)
+  .bind(
+    product.collection_slug,
+    product.product_name,
+    product.product_slug,
+    product.category,
+    product.status,
+    product.description,
+    product.shipping,
+    product.sizeGuide,
+    product.notes,
+    product.id
+  )
+  .run();
+}
+
+export async function deleteProduct(id:number){
+  const db = await getDB();
+
+  await db.prepare(`
+    DELETE FROM products
+    WHERE id = ?
+  `)
+  .bind(id)
+  .run();
+}
+

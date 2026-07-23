@@ -61,3 +61,61 @@ export async function saveCollections(
     await db.batch(batch);
   }
 }
+
+export async function createCollection(
+  collection: Omit<Collection, "id">
+) {
+  const db = await getDB();
+
+  await db.prepare(`
+    INSERT INTO collections (
+      collection_name,
+      collection_slug,
+      description,
+      status
+    )
+    VALUES (?, ?, ?, ?)
+  `)
+  .bind(
+    collection.collection_name,
+    collection.collection_slug,
+    collection.description,
+    collection.status
+  )
+  .run();
+}
+
+export async function updateCollection(
+  collection: Collection
+) {
+  const db = await getDB();
+
+  await db.prepare(`
+    UPDATE collections
+    SET
+      collection_name = ?,
+      collection_slug = ?,
+      description = ?,
+      status = ?
+    WHERE id = ?
+  `)
+  .bind(
+    collection.collection_name,
+    collection.collection_slug,
+    collection.description,
+    collection.status,
+    collection.id
+  )
+  .run();
+}
+
+export async function deleteCollection(id: number) {
+  const db = await getDB();
+
+  await db.prepare(`
+    DELETE FROM collections
+    WHERE id = ?
+  `)
+  .bind(id)
+  .run();
+}
