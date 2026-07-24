@@ -24,7 +24,7 @@ export default async function OrderPage({
       </h1>
 
       <p className="mt-4">
-        Order #{order.id}
+        Order #{order.public_id.slice(0, 8).toUpperCase()}
       </p>
 
       <p>{order.customer_name}</p>

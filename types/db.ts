@@ -49,7 +49,7 @@ export interface Inventory {
 
 export interface Order {
   id: number;
-
+  public_id: string;
   created_at: string;
 
   payment_status: string;
