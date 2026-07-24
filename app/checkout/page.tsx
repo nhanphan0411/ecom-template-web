@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getCurrency } from "@/lib/currency";
 
 
 export default function CheckoutPage() {
@@ -32,17 +33,15 @@ export default function CheckoutPage() {
                             "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
-
                             customerName: formData.get("customerName"),
                             email: formData.get("email"),
                             phone: formData.get("phone"),
                             address: formData.get("address"),
                             notes: formData.get("notes"),
                             paymentMethod: formData.get("paymentMethod"),
-
                             cart,
                             idempotencyKey,
-
+                            currency: getCurrency(),   // add this
                         }),
                     });
 

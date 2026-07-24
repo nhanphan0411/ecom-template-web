@@ -7,22 +7,25 @@ import {
     decreaseQuantity,
     removeFromCart,
 } from "@/lib/cart";
+import { getCurrency } from "@/lib/currency";
 import OrderItems from "@/components/orders/OrderItems";
 
 
 export default function CartPage() {
     const [items, setItems] = useState<any[]>([]);
-    const currency = "VND";
+    const [currency, setCurrencyState] = useState<"VND" | "USD">("VND");
 
     async function loadCart() {
         const cart = getCart();
+        const currentCurrency = getCurrency();
+        setCurrencyState(currentCurrency);
 
         const response = await fetch("/api/cart", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ cart }),
+            body: JSON.stringify({ cart, currency: currentCurrency }),
         });
 
         const items = (await response.json()) as any;
@@ -32,11 +35,15 @@ export default function CartPage() {
 
     useEffect(() => {
         loadCart();
+
+        // Re-fetch cart prices whenever the country/currency selector changes
+        window.addEventListener("currency-change", loadCart);
+        return () => window.removeEventListener("currency-change", loadCart);
     }, []);
 
     const subtotal = items.reduce((total, item) => {
         if (!item.available) return total;
-        return total + item.variant.priceVND * item.quantity;
+        return total + item.unit_price * item.quantity;
     }, 0);
 
     return (

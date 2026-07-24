@@ -18,11 +18,11 @@ export async function createOrderWithDetails(
   // Prevent duplicate submissions
   if (order.idempotency_key) {
     const existing = await db
-  .prepare(`SELECT public_id FROM orders WHERE idempotency_key = ?`)
-  .bind(order.idempotency_key)
-  .first<{ public_id: string }>();
+      .prepare(`SELECT public_id FROM orders WHERE idempotency_key = ?`)
+      .bind(order.idempotency_key)
+      .first<{ public_id: string }>();
 
-if (existing) return existing.public_id;
+    if (existing) return existing.public_id;
   }
 
   let subtotal = 0;
@@ -42,13 +42,16 @@ if (existing) return existing.public_id;
       throw new Error(`Not enough stock for variant ${item.variant_id}`);
     }
 
-    subtotal += (variant.priceVND ?? 0) * item.quantity;
+    const isUSD = order.currency === "USD";
+    const price = isUSD ? (variant.priceUSD ?? 0) : (variant.priceVND ?? 0);
+
+    subtotal += price * item.quantity;
 
     lines.push({
       variant_id: item.variant_id,
       quantity: item.quantity,
-      unit_price: variant.priceVND ?? 0,
-      total_price: (variant.priceVND ?? 0) * item.quantity,
+      unit_price: price,
+      total_price: price * item.quantity,
     });
   }
 

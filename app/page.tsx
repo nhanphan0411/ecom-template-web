@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import CountrySelector from "@/components/CountrySelector";
 import { getCollections } from "@/lib/db/collections";
 import Link from "next/link";
 
@@ -32,6 +33,7 @@ export default async function Home() {
         ))}
 
       </div>
+      <CountrySelector />
 
     </main>
   );

@@ -21,7 +21,6 @@
 			"binding": "DB",
 			"database_name": "ecom-db",
 			"database_id": "57543190-6b4a-4197-9357-a32e64132985",
-			"remote": true
 		}
 	],
   "kv_namespaces": [

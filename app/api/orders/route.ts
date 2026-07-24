@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         phone: body.phone,
         address: body.address,
         notes: body.notes,
-        currency: "VND",
+        currency: body.currency ?? "VND",   // was hardcoded "VND"
         idempotency_key: body.idempotencyKey ?? null,
       },
       body.cart

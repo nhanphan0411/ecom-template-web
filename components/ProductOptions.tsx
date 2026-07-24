@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { addToCart } from "@/lib/cart";
+import { formatPrice } from "@/lib/currency";
+import { getCurrency } from "@/lib/currency";
 import Image from "next/image";
 
 export default function ProductOptions({
@@ -17,7 +19,6 @@ export default function ProductOptions({
     images: any[];
 }) {
     const [selected, setSelected] = useState<Record<string, string>>(() => {
-
         const first = variants[0];
 
         const initial: Record<string, string> = {};
@@ -27,10 +28,29 @@ export default function ProductOptions({
         if (first.variant3) initial[first.variant3] = first.value3;
 
         return initial;
-
     });
 
     const [imgIndex, setImgIndex] = useState(0);
+
+    // Re-render when currency changes
+    const [, forceRender] = useState(0);
+
+    const [currency, setCurrencyState] = useState<"VND" | "USD">("VND");
+
+    useEffect(() => {
+        setCurrencyState(getCurrency());
+
+        const update = () => {
+            forceRender((n) => n + 1);
+            setCurrencyState(getCurrency());
+        };
+
+        window.addEventListener("currency-change", update);
+
+        return () => {
+            window.removeEventListener("currency-change", update);
+        };
+    }, []);
 
     function matchesVariant(variant: any, name: string, value: string) {
         return (
@@ -40,64 +60,88 @@ export default function ProductOptions({
         );
     }
 
-    const selectedVariant = variants.find((variant) => {
-        return Object.entries(selected).every(([name, value]) =>
+    const selectedVariant = variants.find((variant) =>
+        Object.entries(selected).every(([name, value]) =>
             matchesVariant(variant, name, value)
-        );
-    });
+        )
+    );
 
-    // A value at layer `optionIndex` is available if some variant matches it
-    // PLUS everything currently selected in PARENT layers only (index < optionIndex).
-    // Sibling/child selections never block a parent layer's options.
-    function isOptionValueAvailable(optionIndex: number, optionName: string, value: string) {
-        const constraints: Record<string, string> = { [optionName]: value };
+    function isOptionValueAvailable(
+        optionIndex: number,
+        optionName: string,
+        value: string
+    ) {
+        const constraints: Record<string, string> = {
+            [optionName]: value,
+        };
 
         for (let i = 0; i < optionIndex; i++) {
             const parentName = options[i].name;
+
             if (selected[parentName] !== undefined) {
                 constraints[parentName] = selected[parentName];
             }
         }
 
         return variants.some((variant) =>
-            Object.entries(constraints).every(([name, val]) => matchesVariant(variant, name, val))
+            Object.entries(constraints).every(([name, val]) =>
+                matchesVariant(variant, name, val)
+            )
         );
     }
 
-    function selectOption(changedIndex: number, optionName: string, value: string) {
+    function selectOption(
+        changedIndex: number,
+        optionName: string,
+        value: string
+    ) {
         setSelected((prev) => {
-            const next = { ...prev, [optionName]: value };
+            const next = {
+                ...prev,
+                [optionName]: value,
+            };
 
-            // Cascade downward: any deeper layer whose current selection no
-            // longer matches the new parent chain gets snapped to its first
-            // still-available value.
             for (let i = changedIndex + 1; i < options.length; i++) {
                 const layer = options[i];
+
                 const currentValue = next[layer.name];
 
                 const parentConstraints: Record<string, string> = {};
+
                 for (let j = 0; j < i; j++) {
                     const parentName = options[j].name;
-                    if (next[parentName] !== undefined) parentConstraints[parentName] = next[parentName];
+
+                    if (next[parentName] !== undefined) {
+                        parentConstraints[parentName] = next[parentName];
+                    }
                 }
 
                 const stillValid =
                     currentValue &&
                     variants.some((variant) =>
-                        Object.entries({ ...parentConstraints, [layer.name]: currentValue }).every(
-                            ([name, val]) => matchesVariant(variant, name, val)
+                        Object.entries({
+                            ...parentConstraints,
+                            [layer.name]: currentValue,
+                        }).every(([name, val]) =>
+                            matchesVariant(variant, name, val)
                         )
                     );
 
                 if (!stillValid) {
                     const firstAvailable = layer.values.find((v) =>
                         variants.some((variant) =>
-                            Object.entries({ ...parentConstraints, [layer.name]: v }).every(
-                                ([name, val]) => matchesVariant(variant, name, val)
+                            Object.entries({
+                                ...parentConstraints,
+                                [layer.name]: v,
+                            }).every(([name, val]) =>
+                                matchesVariant(variant, name, val)
                             )
                         )
                     );
-                    if (firstAvailable) next[layer.name] = firstAvailable;
+
+                    if (firstAvailable) {
+                        next[layer.name] = firstAvailable;
+                    }
                 }
             }
 
@@ -107,8 +151,13 @@ export default function ProductOptions({
         setImgIndex(0);
     }
 
-    const activeValue1 = variants[0]?.variant1 ? selected[variants[0].variant1] : undefined;
-    const activeValue2 = variants[0]?.variant2 ? selected[variants[0].variant2] : undefined;
+    const activeValue1 = variants[0]?.variant1
+        ? selected[variants[0].variant1]
+        : undefined;
+
+    const activeValue2 = variants[0]?.variant2
+        ? selected[variants[0].variant2]
+        : undefined;
 
     const galleryImages = images.filter((img) => {
         if (img.value1 !== activeValue1) return false;
@@ -140,16 +189,23 @@ export default function ProductOptions({
                         <button
                             onClick={(e) => {
                                 e.preventDefault();
-                                setImgIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+                                setImgIndex(
+                                    (i) =>
+                                        (i - 1 + galleryImages.length) %
+                                        galleryImages.length
+                                );
                             }}
                             className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full w-8 h-8"
                         >
                             ‹
                         </button>
+
                         <button
                             onClick={(e) => {
                                 e.preventDefault();
-                                setImgIndex((i) => (i + 1) % galleryImages.length);
+                                setImgIndex(
+                                    (i) => (i + 1) % galleryImages.length
+                                );
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full w-8 h-8"
                         >
@@ -161,25 +217,39 @@ export default function ProductOptions({
 
             {options.map((option, optionIndex) => (
                 <div key={option.name}>
-                    <h2 className="font-bold mb-2">{option.name}</h2>
+                    <h2 className="font-bold mb-2">
+                        {option.name}
+                    </h2>
 
                     <div className="flex gap-2 flex-wrap">
                         {option.values.map((value) => {
-                            const active = selected[option.name] === value;
-                            const available = isOptionValueAvailable(optionIndex, option.name, value);
+                            const active =
+                                selected[option.name] === value;
+
+                            const available =
+                                isOptionValueAvailable(
+                                    optionIndex,
+                                    option.name,
+                                    value
+                                );
 
                             return (
                                 <button
                                     key={value}
                                     disabled={!available}
-                                    onClick={() => selectOption(optionIndex, option.name, value)}
-                                    className={`border rounded px-4 py-2 ${
-                                        active
+                                    onClick={() =>
+                                        selectOption(
+                                            optionIndex,
+                                            option.name,
+                                            value
+                                        )
+                                    }
+                                    className={`border rounded px-4 py-2 ${active
                                             ? "bg-black text-white"
                                             : !available
-                                            ? "opacity-30 cursor-not-allowed"
-                                            : ""
-                                    }`}
+                                                ? "opacity-30 cursor-not-allowed"
+                                                : ""
+                                        }`}
                                 >
                                     {value}
                                 </button>
@@ -190,32 +260,43 @@ export default function ProductOptions({
             ))}
 
             <div className="border rounded p-4">
-
                 <h2 className="font-bold mb-4">
                     Selected Variant
                 </h2>
 
                 {selectedVariant ? (
                     <>
-                        <p>Stock: {selectedVariant.stock}</p>
-                        <p>Price: {selectedVariant.priceVND.toLocaleString()} VND</p>
+                        <p>
+                            Stock: {selectedVariant.stock}
+                        </p>
+
+                        <p>
+                            Price:{" "}
+                            {formatPrice(
+                                selectedVariant.priceVND,
+                                selectedVariant.priceUSD,
+                                currency
+                            )}
+                        </p>
 
                         <button
                             className="mt-6 border rounded px-4 py-2 disabled:opacity-30 disabled:cursor-not-allowed"
-                            disabled={selectedVariant.stock === 0}
+                            disabled={
+                                selectedVariant.stock === 0
+                            }
                             onClick={() => {
-                                if (!selectedVariant) return;
                                 addToCart(selectedVariant.id);
                                 alert("Added to cart");
                             }}
                         >
-                            {selectedVariant.stock === 0 ? "Out of Stock" : "Add to Cart"}
+                            {selectedVariant.stock === 0
+                                ? "Out of Stock"
+                                : "Add to Cart"}
                         </button>
                     </>
                 ) : (
                     <p>Please select all options.</p>
                 )}
-
             </div>
         </div>
     );

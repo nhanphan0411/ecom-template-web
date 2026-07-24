@@ -8,7 +8,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetch("/api/admin/orders")
-      .then((res) => res.json())
+      .then((res) => (res.json()) as any)
       .then(setOrders);
   }, []);
 
